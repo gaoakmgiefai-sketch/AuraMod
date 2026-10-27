@@ -6,7 +6,6 @@ import java.util.Random;
 public class SpookyTimeBypassRotations {
     private static final Random RANDOM = new Random();
 
-    // 1. SpookyTime Legit
     public static float[] spookyTimeLegit(float currentYaw, float currentPitch, float targetYaw, float targetPitch) {
         float yawDiff = wrapDegrees(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
@@ -21,7 +20,6 @@ public class SpookyTimeBypassRotations {
         return new float[] { currentYaw + yawStep + noiseYaw, clamp(currentPitch + pitchStep + noisePitch, -90.0f, 90.0f) };
     }
 
-    // 2. ReallyWorld Aggressive
     public static float[] reallyWorldAggressive(float currentYaw, float currentPitch, float targetYaw, float targetPitch) {
         float yawDiff = wrapDegrees(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
@@ -35,7 +33,6 @@ public class SpookyTimeBypassRotations {
         return new float[] { currentYaw + yawStep, clamp(currentPitch + pitchStep + pitchJitter, -90.0f, 90.0f) };
     }
 
-    // 3. Silent Matrix
     public static float[] silentMatrixBypass(float serverYaw, float serverPitch, float targetYaw, float targetPitch) {
         float yawDiff = wrapDegrees(targetYaw - serverYaw);
         float pitchDiff = targetPitch - serverPitch;
