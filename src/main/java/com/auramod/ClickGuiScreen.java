@@ -5,52 +5,50 @@ import com.auramod.module.combat.KillAuraModule;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.HashMap;
-import java.util.Map;
-
+/**
+ * Conservative Glass GUI for Minecraft 1.21.8.
+ * Uses basic DrawContext calls and does not pause the game.
+ */
 public final class ClickGuiScreen extends Screen {
 
     private enum Tab {
-        COMBAT("Combat", "C"),
-        VISUALS("Visuals", "V"),
-        HUD("HUD", "H");
+        COMBAT("Combat"),
+        VISUALS("Visuals"),
+        HUD("HUD");
 
-        private final String title;
-        private final String letter;
+        private final String label;
 
-        Tab(String title, String letter) {
-            this.title = title;
-            this.letter = letter;
+        Tab(String label) {
+            this.label = label;
         }
     }
 
-    private final KillAuraModule practiceModule;
-    private final Map<String, Float> switchAnimations = new HashMap<>();
+    private final KillAuraModule module;
 
-    private Tab selectedTab = Tab.COMBAT;
-    private float openProgress = 0.0F;
-    private float animationTime = 0.0F;
+    private Tab tab = Tab.COMBAT;
 
-    private boolean particlesEnabled = true;
-    private boolean glassGlowEnabled = true;
-    private boolean gridEnabled = false;
-    private boolean targetHudPreviewEnabled = true;
-    private boolean arrayListPreviewEnabled = true;
+    private boolean particles = true;
+    private boolean glow = true;
+    private boolean grid = false;
+    private boolean arrayPreview = true;
+    private boolean targetPreview = true;
+
     private int accentIndex = 0;
+    private float openAmount = 0.0F;
+    private float tick = 0.0F;
 
     private static final int[] ACCENTS = {
-            0xFF62E8D5,
-            0xFF9C83FF,
-            0xFF72B7FF,
-            0xFFFF86B6
+        0xFF65E6D2,
+        0xFF9D83FF,
+        0xFF72B8FF,
+        0xFFFF83B4
     };
 
-    public ClickGuiScreen(KillAuraModule practiceModule) {
-        super(Text.literal("AuraMod ClickGUI"));
-        this.practiceModule = practiceModule;
+    public ClickGuiScreen(KillAuraModule module) {
+        super(Text.literal("AuraMod Glass"));
+        this.module = module;
     }
 
     @Override
@@ -59,952 +57,692 @@ public final class ClickGuiScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX,
-                       int mouseY, float deltaTicks) {
-        animationTime += Math.max(0.25F, deltaTicks);
-        openProgress += (1.0F - openProgress) * 0.22F;
+    public void render(
+            DrawContext ctx,
+            int mouseX,
+            int mouseY,
+            float delta
+    ) {
+        tick += Math.max(0.0F, delta);
+        openAmount += (1.0F - openAmount) * 0.24F;
 
-        super.renderBackground(context, mouseX, mouseY, deltaTicks);
+        // Draw our own dark background.
+        ctx.fill(0, 0, width, height, 0xB807101B);
 
-        context.fill(
-                0, 0, width, height,
-                withAlpha(0xFF07101C, 0.60F * openProgress)
+        if (grid) {
+            drawGrid(ctx);
+        }
+
+        if (particles) {
+            drawParticles(ctx);
+        }
+
+        Layout l = layout();
+        float alpha = clamp01(openAmount);
+
+        if (glow) {
+            fill(ctx,
+                    l.x - 4, l.y - 4,
+                    l.w + 8, l.h + 8,
+                    withAlpha(accent(), alpha * 0.10F));
+        }
+
+        fill(ctx,
+                l.x + 3, l.y + 4,
+                l.w, l.h,
+                withAlpha(0xFF000000, alpha * 0.32F));
+
+        ctx.fillGradient(
+                l.x, l.y,
+                l.x + l.w, l.y + l.h,
+                withAlpha(0xE8152030, alpha),
+                withAlpha(0xE9091422, alpha)
         );
 
-        if (gridEnabled) {
-            drawGrid(context, openProgress);
-        }
-
-        if (particlesEnabled) {
-            drawParticles(context, openProgress);
-        }
-
-        Layout layout = getLayout();
-        drawWindow(context, layout, mouseX, mouseY);
-
-        super.render(context, mouseX, mouseY, deltaTicks);
-    }
-
-    private void drawWindow(DrawContext context, Layout l,
-                            int mouseX, int mouseY) {
-        float openingAlpha = easeOut(openProgress);
-        int accent = accent();
-
-        if (glassGlowEnabled) {
-            rounded(context, l.x - 5, l.y - 4,
-                    l.w + 10, l.h + 8, 18,
-                    withAlpha(accent, 0.045F * openingAlpha));
-
-            rounded(context, l.x - 2, l.y - 2,
-                    l.w + 4, l.h + 4, 15,
-                    withAlpha(accent, 0.075F * openingAlpha));
-        }
-
-        rounded(context, l.x, l.y + 3, l.w, l.h, 13,
-                withAlpha(0xFF000000, 0.40F * openingAlpha));
-
-        rounded(context, l.x, l.y, l.w, l.h, 13,
-                withAlpha(0xD9152031, openingAlpha));
-
-        rounded(context, l.x + 1, l.y + 1,
-                l.w - 2, l.h - 2, 12,
-                withAlpha(0xA8111D2D, openingAlpha));
-
-        context.drawBorder(
+        ctx.drawBorder(
                 l.x, l.y, l.w, l.h,
-                withAlpha(0xA6D8F4FF, 0.30F * openingAlpha)
+                withAlpha(0xFFD8F2FF, alpha * 0.28F)
         );
 
-        context.fillGradient(
-                l.x + 18, l.y + 1,
-                l.x + l.w - 18, l.y + 3,
-                withAlpha(accent, 0.94F * openingAlpha),
-                withAlpha(
-                        ACCENTS[(accentIndex + 1) % ACCENTS.length],
-                        0.55F * openingAlpha
-                )
+        ctx.fill(
+                l.x + 16, l.y + 1,
+                l.x + l.w - 16, l.y + 3,
+                withAlpha(accent(), alpha)
         );
 
-        drawSidebar(context, l, mouseX, mouseY, openingAlpha);
-        drawMainPanel(context, l, mouseX, mouseY, openingAlpha);
+        drawSidebar(ctx, l, mouseX, mouseY, alpha);
+        drawContent(ctx, l, mouseX, mouseY, alpha);
     }
 
-    private void drawSidebar(DrawContext context, Layout l,
-                             int mouseX, int mouseY, float alpha) {
-        int accent = accent();
+    private void drawSidebar(
+            DrawContext ctx,
+            Layout l,
+            int mx,
+            int my,
+            float alpha
+    ) {
+        fill(ctx,
+                l.x + 9, l.y + 10,
+                l.sidebarW - 15, l.h - 20,
+                withAlpha(0xFF0B1421, alpha * 0.75F));
 
-        rounded(context, l.x + 10, l.y + 12,
-                l.sidebarW - 18, l.h - 24, 10,
-                withAlpha(0x80101B2A, alpha));
+        fill(ctx,
+                l.x + 20, l.y + 22,
+                34, 34,
+                withAlpha(accent(), alpha * 0.32F));
 
-        rounded(context, l.x + 22, l.y + 25,
-                34, 34, 10, withAlpha(accent, alpha));
+        fill(ctx,
+                l.x + 25, l.y + 27,
+                24, 24,
+                withAlpha(0xFF101D2C, alpha));
 
-        rounded(context, l.x + 29, l.y + 32,
-                20, 20, 6, withAlpha(0xFF0D1A29, alpha));
+        text(ctx, "A",
+                l.x + 33, l.y + 35,
+                withAlpha(accent(), alpha));
 
-        drawText(context, "A", l.x + 35, l.y + 37,
-                withAlpha(accent, alpha));
+        text(ctx, "AURAMOD",
+                l.x + 61, l.y + 25,
+                withAlpha(0xFFF1F7FF, alpha));
 
-        drawText(context, "AURAMOD", l.x + 63, l.y + 28,
-                withAlpha(0xFFF3FAFF, alpha));
+        text(ctx, "GLASS EDITION",
+                l.x + 61, l.y + 39,
+                withAlpha(0xFF8DA4BA, alpha));
 
-        drawText(context, "GLASS EDITION", l.x + 63, l.y + 42,
-                withAlpha(0xFF89A2B8, alpha));
-
-        drawText(context, "WORKSPACE", l.x + 22, l.y + 83,
+        text(ctx, "WORKSPACE",
+                l.x + 19, l.y + 77,
                 withAlpha(0xFF71869D, alpha));
 
-        int navY = l.y + 101;
+        int navY = l.y + 94;
 
-        for (Tab tab : Tab.values()) {
-            int y = navY + tab.ordinal() * 42;
-            boolean active = selectedTab == tab;
+        for (Tab candidate : Tab.values()) {
+            int y = navY + candidate.ordinal() * 39;
 
+            boolean active = candidate == tab;
             boolean hovered = inside(
-                    mouseX, mouseY,
-                    l.x + 17, y - 5,
-                    l.sidebarW - 34, 34
+                    mx, my,
+                    l.x + 15, y - 4,
+                    l.sidebarW - 28, 31
             );
 
-            if (active) {
-                rounded(context, l.x + 17, y - 5,
-                        l.sidebarW - 34, 34, 8,
-                        withAlpha(accent, 0.15F * alpha));
-
-                rounded(context, l.x + 17, y + 2,
-                        3, 20, 2, withAlpha(accent, alpha));
-            } else if (hovered) {
-                rounded(context, l.x + 17, y - 5,
-                        l.sidebarW - 34, 34, 8,
-                        withAlpha(0xFFB6D3E8, 0.07F * alpha));
+            if (active || hovered) {
+                fill(ctx,
+                        l.x + 15, y - 4,
+                        l.sidebarW - 28, 31,
+                        withAlpha(
+                                active ? accent() : 0xFFB6D3E8,
+                                alpha * (active ? 0.16F : 0.07F)
+                        ));
             }
 
-            rounded(context, l.x + 27, y + 2,
-                    20, 20, 6,
-                    withAlpha(
-                            active ? accent : 0xFF34465B,
-                            (active ? 0.26F : 0.60F) * alpha
-                    ));
+            if (active) {
+                fill(ctx,
+                        l.x + 15, y + 2,
+                        3, 18,
+                        withAlpha(accent(), alpha));
+            }
 
-            drawText(context, tab.letter,
-                    l.x + 33, y + 8,
-                    withAlpha(active ? accent : 0xFFB0C0D0, alpha));
-
-            drawText(context, tab.title,
-                    l.x + 56, y + 8,
+            text(ctx, candidate.label,
+                    l.x + 28, y + 7,
                     withAlpha(
                             active ? 0xFFFFFFFF : 0xFF9AAEC1,
                             alpha
                     ));
         }
 
-        int footerY = l.y + l.h - 65;
+        int footerY = l.y + l.h - 48;
 
-        rounded(context, l.x + 20, footerY,
-                l.sidebarW - 40, 1, 0,
-                withAlpha(0xFF8EA5BA, 0.18F * alpha));
+        ctx.fill(
+                l.x + 18, footerY,
+                l.x + l.sidebarW - 14, footerY + 1,
+                withAlpha(0xFF8EA5BA, alpha * 0.18F)
+        );
 
-        rounded(context, l.x + 23, footerY + 14,
-                7, 7, 4, withAlpha(0xFF65E5AA, alpha));
+        fill(ctx,
+                l.x + 21, footerY + 13,
+                7, 7,
+                withAlpha(0xFF65E5AA, alpha));
 
-        drawText(context, "LOCAL BUILD",
-                l.x + 36, footerY + 13,
+        text(ctx, "LOCAL BUILD",
+                l.x + 34, footerY + 11,
                 withAlpha(0xFFB6C9D8, alpha));
 
-        drawText(context, "Minecraft 1.21.8",
-                l.x + 23, footerY + 29,
+        text(ctx, "Minecraft 1.21.8",
+                l.x + 19, footerY + 28,
                 withAlpha(0xFF6F879F, alpha));
     }
 
-    private void drawMainPanel(DrawContext context, Layout l,
-                               int mouseX, int mouseY, float alpha) {
-        int accent = accent();
-        int contentX = l.contentX;
-        int contentW = l.contentW;
+    private void drawContent(
+            DrawContext ctx,
+            Layout l,
+            int mx,
+            int my,
+            float alpha
+    ) {
+        int x = l.contentX;
+        int w = l.contentW;
 
-        drawText(context, selectedTab.title.toUpperCase(),
-                contentX, l.y + 24,
+        text(ctx, tab.label.toUpperCase(),
+                x, l.y + 22,
                 withAlpha(0xFFF1F8FF, alpha));
 
-        drawText(context, subtitle(),
-                contentX, l.y + 41,
+        text(ctx, subtitle(),
+                x, l.y + 39,
                 withAlpha(0xFF8BA0B5, alpha));
 
-        rounded(context, l.x + l.w - 88, l.y + 17,
-                60, 22, 8, withAlpha(0xFF0D1725, alpha));
+        fill(ctx,
+                l.x + l.w - 86, l.y + 16,
+                58, 22,
+                withAlpha(0xFF0D1725, alpha));
 
-        rounded(context, l.x + l.w - 78, l.y + 25,
-                5, 5, 3, withAlpha(0xFF69E2B0, alpha));
+        fill(ctx,
+                l.x + l.w - 76, l.y + 24,
+                5, 5,
+                withAlpha(0xFF69E2B0, alpha));
 
-        drawText(context, "READY",
-                l.x + l.w - 67, l.y + 24,
+        text(ctx, "READY",
+                l.x + l.w - 65, l.y + 23,
                 withAlpha(0xFFBCD4E7, alpha));
 
-        drawText(context, "×",
-                l.x + l.w - 19, l.y + 19,
+        text(ctx, "X",
+                l.x + l.w - 19, l.y + 20,
                 withAlpha(0xFF8FA5BA, alpha));
 
-        int contentTop = l.y + 64;
+        int top = l.y + 58;
 
-        switch (selectedTab) {
-            case COMBAT ->
-                    drawCombatTab(context, l, mouseX, mouseY,
-                            alpha, contentTop, contentW);
-            case VISUALS ->
-                    drawVisualsTab(context, l, mouseX, mouseY,
-                            alpha, contentTop, contentW);
-            case HUD ->
-                    drawHudTab(context, l, mouseX, mouseY,
-                            alpha, contentTop, contentW);
+        if (tab == Tab.COMBAT) {
+            drawCombat(ctx, l, mx, my, alpha, top);
+        } else if (tab == Tab.VISUALS) {
+            drawVisuals(ctx, l, mx, my, alpha, top);
+        } else {
+            drawHud(ctx, l, mx, my, alpha, top);
         }
 
-        int footerY = l.y + l.h - 22;
+        int footerY = l.y + l.h - 20;
 
-        context.fill(
-                contentX, footerY - 7,
-                l.x + l.w - 17, footerY - 6,
-                withAlpha(0xFF9FB5C9, 0.13F * alpha)
+        ctx.fill(
+                x, footerY - 7,
+                l.x + l.w - 14, footerY - 6,
+                withAlpha(0xFF9FB5C9, alpha * 0.13F)
         );
 
-        drawText(context, "RIGHT SHIFT  /  CLOSE",
-                contentX, footerY,
+        text(ctx, "RIGHT SHIFT / ESC TO CLOSE",
+                x, footerY,
                 withAlpha(0xFF6F859B, alpha));
 
-        drawText(context, "AURAMOD  •  DEV",
-                l.x + l.w - 112, footerY,
-                withAlpha(accent, 0.82F * alpha));
+        text(ctx, "AURAMOD",
+                l.x + l.w - 73, footerY,
+                withAlpha(accent(), alpha));
     }
 
-    private void drawCombatTab(DrawContext context, Layout l,
-                               int mouseX, int mouseY,
-                               float alpha, int top, int contentW) {
+    private void drawCombat(
+            DrawContext ctx,
+            Layout l,
+            int mx,
+            int my,
+            float alpha,
+            int top
+    ) {
         int x = l.contentX;
-        int accent = accent();
-        int cardW = contentW;
-        int cardY = top + 10;
+        int w = l.contentW;
+        int cardY = top + 6;
 
-        glassCard(context, x, cardY, cardW, 66,
-                alpha, mouseX, mouseY);
+        card(ctx, x, cardY, w, 55, alpha, mx, my);
 
-        rounded(context, x + 13, cardY + 15,
-                34, 34, 9, withAlpha(accent, 0.19F * alpha));
-
-        drawText(context, "A", x + 25, cardY + 27,
-                withAlpha(accent, alpha));
-
-        drawText(context, "Practice Aura", x + 58, cardY + 16,
+        text(ctx, "PRACTICE AURA",
+                x + 12, cardY + 10,
                 withAlpha(0xFFF0F7FF, alpha));
 
-        drawText(context, "Hostile mobs • singleplayer only",
-                x + 58, cardY + 34,
+        text(ctx, "Hostile mobs - singleplayer only",
+                x + 12, cardY + 29,
                 withAlpha(0xFF8299AE, alpha));
 
-        drawText(context,
-                practiceModule.isEnabled() ? "ACTIVE" : "INACTIVE",
-                x + cardW - 99, cardY + 13,
-                withAlpha(
-                        practiceModule.isEnabled()
-                                ? accent : 0xFF7D91A5,
-                        alpha
-                ));
+        button(ctx,
+                x + w - 79, cardY + 17,
+                65, 24,
+                module.isEnabled() ? accent() : 0xFF34465B,
+                module.isEnabled() ? "ON" : "OFF",
+                alpha);
 
-        drawSwitch(context, "aura",
-                practiceModule.isEnabled(),
-                x + cardW - 51, cardY + 34, alpha);
+        int gap = 9;
+        int half = (w - gap) / 2;
+        int rowY = cardY + 66;
 
-        int gap = 10;
-        int leftW = (cardW - gap) / 2;
-        int rightX = x + leftW + gap;
-        int rowY = cardY + 77;
-        int rowH = 94;
+        card(ctx, x, rowY, half, 79, alpha, mx, my);
 
-        glassCard(context, x, rowY, leftW, rowH,
-                alpha, mouseX, mouseY);
-
-        drawText(context, "ATTACK RANGE",
-                x + 13, rowY + 12,
+        text(ctx, "RANGE",
+                x + 11, rowY + 10,
                 withAlpha(0xFF8DA4B8, alpha));
 
-        drawText(
-                context,
+        text(ctx,
                 String.format(
                         java.util.Locale.ROOT,
                         "%.1f blocks",
-                        practiceModule.getRange()
+                        module.getRange()
                 ),
-                x + 13, rowY + 32,
-                withAlpha(0xFFF3F8FF, alpha)
+                x + 11, rowY + 27,
+                withAlpha(0xFFF3F8FF, alpha));
+
+        int trackX = x + 12;
+        int trackY = rowY + 54;
+        int trackW = Math.max(20, half - 24);
+
+        ctx.fill(
+                trackX, trackY,
+                trackX + trackW, trackY + 5,
+                withAlpha(0xFF33465B, alpha)
         );
 
-        int trackX = x + 13;
-        int trackW = leftW - 26;
-        int trackY = rowY + 66;
+        float rangeProgress = (float)
+                ((module.getRange() - 1.0) / 5.0);
 
-        rounded(context, trackX, trackY, trackW, 5, 3,
-                withAlpha(0xFF33465B, alpha));
+        ctx.fill(
+                trackX, trackY,
+                trackX + Math.round(trackW * rangeProgress),
+                trackY + 5,
+                withAlpha(accent(), alpha)
+        );
 
-        float rangeT = (float)
-                ((practiceModule.getRange() - 1.0) / 5.0);
-
-        rounded(context, trackX, trackY,
-                Math.max(4, (int) (trackW * rangeT)),
-                5, 3, withAlpha(accent, alpha));
-
-        int knobX = trackX + (int) (trackW * rangeT);
-
-        rounded(context, knobX - 5, trackY - 4,
-                11, 13, 5, withAlpha(0xFFE9FBFF, alpha));
-
-        drawText(context, "1", trackX, rowY + 78,
+        text(ctx, "1",
+                trackX, rowY + 65,
                 withAlpha(0xFF6F859B, alpha));
 
-        drawText(context, "6", trackX + trackW - 5, rowY + 78,
+        text(ctx, "6",
+                trackX + trackW - 4, rowY + 65,
                 withAlpha(0xFF6F859B, alpha));
 
-        drawOptionRow(
-                context, rightX, rowY, leftW, 43,
-                "Raycast check", "Require crosshair lock",
-                "raycast", practiceModule.isRaycastEnabled(),
-                alpha, mouseX, mouseY
-        );
+        int rightX = x + half + gap;
 
-        drawModeRow(
-                context, rightX, rowY + 51, leftW, 43,
-                alpha, mouseX, mouseY
-        );
+        card(ctx, rightX, rowY, half, 35, alpha, mx, my);
 
-        int infoY = rowY + rowH + 11;
+        text(ctx, "Raycast",
+                rightX + 9, rowY + 12,
+                withAlpha(0xFFE5F0FA, alpha));
 
-        glassCard(context, x, infoY, cardW, 45,
-                alpha, mouseX, mouseY);
+        text(ctx,
+                module.isRaycastEnabled() ? "ON" : "OFF",
+                rightX + half - 31, rowY + 12,
+                withAlpha(accent(), alpha));
 
-        rounded(context, x + 13, infoY + 13,
-                18, 18, 6, withAlpha(0xFF7CB8FF, 0.15F * alpha));
+        card(ctx, rightX, rowY + 43, half, 36, alpha, mx, my);
 
-        drawText(context, "i", x + 20, infoY + 17,
-                withAlpha(0xFF9DCAFF, alpha));
+        text(ctx, "Rotation",
+                rightX + 9, rowY + 55,
+                withAlpha(0xFFE5F0FA, alpha));
 
-        drawText(context, "Practice mode", x + 41, infoY + 9,
-                withAlpha(0xFFE3F0FB, alpha));
+        String mode = module.getRotationMode()
+                == KillAuraModule.RotationMode.SMOOTH
+                ? "Smooth" : "Snap";
 
-        drawText(
-                context,
-                "The module is restricted to local singleplayer worlds.",
-                x + 41, infoY + 25,
-                withAlpha(0xFF8198AD, alpha)
-        );
+        text(ctx, mode,
+                rightX + half - 48, rowY + 55,
+                withAlpha(accent(), alpha));
+
+        int infoY = rowY + 91;
+
+        card(ctx, x, infoY, w, 44, alpha, mx, my);
+
+        text(ctx, "LOCAL PRACTICE",
+                x + 11, infoY + 8,
+                withAlpha(accent(), alpha));
+
+        text(ctx, "This module is disabled in multiplayer.",
+                x + 11, infoY + 24,
+                withAlpha(0xFF8198AD, alpha));
     }
 
-    private void drawVisualsTab(DrawContext context, Layout l,
-                                int mouseX, int mouseY,
-                                float alpha, int top, int contentW) {
+    private void drawVisuals(
+            DrawContext ctx,
+            Layout l,
+            int mx,
+            int my,
+            float alpha,
+            int top
+    ) {
         int x = l.contentX;
-        int gap = 10;
-        int w = (contentW - gap) / 2;
-        int cardY = top + 10;
-        int cardH = 84;
+        int w = l.contentW;
+        int gap = 9;
+        int half = (w - gap) / 2;
+        int y = top + 7;
 
-        drawVisualOption(
-                context, x, cardY, w, cardH,
-                "Ambient particles", "Slow drifting specks",
-                "particles", particlesEnabled,
-                alpha, mouseX, mouseY
-        );
+        optionCard(ctx, x, y, half, 55,
+                "Particles", particles, alpha, mx, my);
 
-        drawVisualOption(
-                context, x + w + gap, cardY, w, cardH,
-                "Glass glow", "Soft accent halo",
-                "glow", glassGlowEnabled,
-                alpha, mouseX, mouseY
-        );
+        optionCard(ctx, x + half + gap, y, half, 55,
+                "Glass glow", glow, alpha, mx, my);
 
-        drawVisualOption(
-                context, x, cardY + cardH + 10, w, cardH,
-                "Background grid", "Fine glass texture",
-                "grid", gridEnabled,
-                alpha, mouseX, mouseY
-        );
+        optionCard(ctx, x, y + 64, half, 55,
+                "Grid", grid, alpha, mx, my);
 
-        glassCard(
-                context, x + w + gap, cardY + cardH + 10,
-                w, cardH, alpha, mouseX, mouseY
-        );
+        card(ctx, x + half + gap, y + 64, half, 55,
+                alpha, mx, my);
 
-        drawText(context, "ACCENT COLOR",
-                x + w + gap + 13, cardY + cardH + 23,
+        text(ctx, "ACCENT COLOR",
+                x + half + gap + 9, y + 75,
                 withAlpha(0xFF8DA4B8, alpha));
 
         String[] names = {"Mint", "Violet", "Sky", "Rose"};
 
-        drawText(context, names[accentIndex],
-                x + w + gap + 13, cardY + cardH + 42,
-                withAlpha(0xFFF1F8FF, alpha));
-
-        int dotStart = x + w + gap + 13;
-
-        for (int i = 0; i < ACCENTS.length; i++) {
-            rounded(context, dotStart + i * 22,
-                    cardY + cardH + 61, 15, 7, 4,
-                    withAlpha(ACCENTS[i], alpha));
-        }
-
-        rounded(context, x + contentW - 46,
-                cardY + cardH + 24, 32, 32, 9,
-                withAlpha(accent(), 0.18F * alpha));
-
-        drawText(context, "↻",
-                x + contentW - 36, cardY + cardH + 33,
+        text(ctx, names[accentIndex],
+                x + half + gap + 9, y + 94,
                 withAlpha(accent(), alpha));
 
-        int noteY = cardY + cardH * 2 + 25;
-
-        glassCard(context, x, noteY, contentW, 47,
-                alpha, mouseX, mouseY);
-
-        drawText(context, "LIVE PREVIEW",
-                x + 13, noteY + 9,
-                withAlpha(accent(), alpha));
-
-        drawText(
-                context,
-                "Flip a switch to see the glass theme update instantly.",
-                x + 13, noteY + 25,
-                withAlpha(0xFF8CA2B6, alpha)
-        );
-    }
-
-    private void drawHudTab(DrawContext context, Layout l,
-                            int mouseX, int mouseY,
-                            float alpha, int top, int contentW) {
-        int x = l.contentX;
-        int cardY = top + 10;
-        int half = (contentW - 10) / 2;
-
-        drawVisualOption(
-                context, x, cardY, half, 77,
-                "Array list preview", "Active modules card",
-                "array", arrayListPreviewEnabled,
-                alpha, mouseX, mouseY
-        );
-
-        drawVisualOption(
-                context, x + half + 10, cardY, half, 77,
-                "Target HUD preview", "Health bar mock-up",
-                "targethud", targetHudPreviewEnabled,
-                alpha, mouseX, mouseY
-        );
-
-        int previewY = cardY + 91;
-        int previewH = l.y + l.h - previewY - 43;
-
-        glassCard(
-                context, x, previewY, contentW,
-                Math.max(88, previewH), alpha, mouseX, mouseY
-        );
-
-        drawText(context, "ON-SCREEN PREVIEWS",
-                x + 13, previewY + 12,
-                withAlpha(0xFF8DA4B8, alpha));
-
-        if (arrayListPreviewEnabled) {
-            int ax = x + 13;
-            int ay = previewY + 34;
-            int previewW = Math.min(150, contentW / 2 - 16);
-
-            rounded(context, ax, ay, previewW, 22, 6,
-                    withAlpha(0xC80B1522, alpha));
-
-            drawText(context, "AURAMOD",
-                    ax + 8, ay + 7,
-                    withAlpha(accent(), alpha));
-
-            if (practiceModule.isEnabled()) {
-                rounded(context, ax, ay + 26,
-                        previewW, 22, 6,
-                        withAlpha(0xC80B1522, alpha));
-
-                drawText(context, "Practice Aura",
-                        ax + 8, ay + 33,
-                        withAlpha(0xFFE6F2FC, alpha));
-            }
-        }
-
-        if (targetHudPreviewEnabled) {
-            int hw = Math.min(190, contentW / 2 - 8);
-            int hx = x + contentW - hw - 13;
-            int hy = previewY + 34;
-
-            rounded(context, hx, hy, hw, 66, 8,
-                    withAlpha(0xD20B1522, alpha));
-
-            rounded(context, hx + 9, hy + 10,
-                    25, 25, 7,
-                    withAlpha(0xFF3A536B, alpha));
-
-            drawText(context, "MOB",
-                    hx + 14, hy + 19,
-                    withAlpha(0xFFD7E7F5, alpha));
-
-            drawText(context, "Training target",
-                    hx + 42, hy + 9,
-                    withAlpha(0xFFE8F3FC, alpha));
-
-            drawText(context, "20.0 / 20.0 HP",
-                    hx + 42, hy + 25,
-                    withAlpha(0xFF8FA9BD, alpha));
-
-            rounded(context, hx + 10, hy + 47,
-                    hw - 20, 6, 3,
-                    withAlpha(0xFF35465A, alpha));
-
-            rounded(context, hx + 10, hy + 47,
-                    hw - 20, 6, 3,
-                    withAlpha(0xFF62E0A4, alpha));
-        }
-
-        drawText(
-                context,
-                "These are visual previews inside the menu.",
-                x + 13,
-                previewY + Math.max(88, previewH) - 18,
-                withAlpha(0xFF738AA0, alpha)
-        );
-    }
-
-    private void drawOptionRow(
-            DrawContext context, int x, int y, int w, int h,
-            String title, String description, String key, boolean value,
-            float alpha, int mouseX, int mouseY
-    ) {
-        glassCard(context, x, y, w, h, alpha, mouseX, mouseY);
-
-        drawText(context, title, x + 11, y + 7,
-                withAlpha(0xFFE5F0FA, alpha));
-
-        drawText(context, description, x + 11, y + 22,
-                withAlpha(0xFF7E94A9, alpha));
-
-        drawSwitch(context, key, value,
-                x + w - 43, y + 13, alpha);
-    }
-
-    private void drawModeRow(DrawContext context, int x, int y,
-                             int w, int h, float alpha,
-                             int mouseX, int mouseY) {
-        glassCard(context, x, y, w, h, alpha, mouseX, mouseY);
-
-        drawText(context, "Rotation", x + 11, y + 7,
-                withAlpha(0xFFE5F0FA, alpha));
-
-        String mode = practiceModule.getRotationMode()
-                == KillAuraModule.RotationMode.SMOOTH
-                ? "Smooth" : "Snap";
-
-        drawText(context, "Click to change", x + 11, y + 22,
-                withAlpha(0xFF7E94A9, alpha));
-
-        int buttonW = 57;
-
-        rounded(context, x + w - buttonW - 9, y + 10,
-                buttonW, 23, 7,
-                withAlpha(accent(), 0.16F * alpha));
-
-        drawText(context, mode, x + w - buttonW + 3, y + 17,
-                withAlpha(accent(), alpha));
-    }
-
-    private void drawVisualOption(
-            DrawContext context, int x, int y, int w, int h,
-            String title, String description, String key, boolean value,
-            float alpha, int mouseX, int mouseY
-    ) {
-        glassCard(context, x, y, w, h, alpha, mouseX, mouseY);
-
-        drawText(context, title, x + 12, y + 13,
-                withAlpha(0xFFE7F2FC, alpha));
-
-        drawText(context, description, x + 12, y + 30,
+        text(ctx, "Click to cycle",
+                x + half + gap + 9, y + 107,
                 withAlpha(0xFF8197AC, alpha));
 
-        drawSwitch(context, key, value,
-                x + w - 48, y + h - 29, alpha);
+        card(ctx, x, y + 128, w, 43, alpha, mx, my);
+
+        text(ctx, "Live preview",
+                x + 10, y + 137,
+                withAlpha(accent(), alpha));
+
+        text(ctx, "Changes apply immediately to this menu.",
+                x + 10, y + 152,
+                withAlpha(0xFF8197AC, alpha));
     }
 
-    private void glassCard(
-            DrawContext context, int x, int y, int w, int h,
-            float alpha, int mouseX, int mouseY
+    private void drawHud(
+            DrawContext ctx,
+            Layout l,
+            int mx,
+            int my,
+            float alpha,
+            int top
     ) {
-        boolean hovered = inside(mouseX, mouseY, x, y, w, h);
+        int x = l.contentX;
+        int w = l.contentW;
+        int half = (w - 9) / 2;
+        int y = top + 7;
 
-        rounded(context, x, y, w, h, 9,
-                withAlpha(
-                        hovered ? 0xB52D4054 : 0x92233346,
-                        alpha
-                ));
+        optionCard(ctx, x, y, half, 55,
+                "Array list preview",
+                arrayPreview, alpha, mx, my);
 
-        rounded(context, x + 1, y + 1, w - 2, 1, 0,
-                withAlpha(
-                        hovered ? accent() : 0xFFD8F0FF,
-                        (hovered ? 0.40F : 0.13F) * alpha
-                ));
+        optionCard(ctx, x + half + 9, y, half, 55,
+                "Target HUD preview",
+                targetPreview, alpha, mx, my);
 
-        context.drawBorder(
-                x, y, w, h,
-                withAlpha(
-                        hovered ? accent() : 0xFFB4CCDF,
-                        (hovered ? 0.35F : 0.13F) * alpha
-                )
+        int previewY = y + 68;
+
+        card(ctx, x, previewY, w, 127, alpha, mx, my);
+
+        text(ctx, "ON-SCREEN PREVIEW",
+                x + 10, previewY + 10,
+                withAlpha(0xFF8DA4B8, alpha));
+
+        if (arrayPreview) {
+            int previewW = Math.max(30, Math.min(128, w / 2 - 12));
+
+            fill(ctx,
+                    x + 10, previewY + 30,
+                    previewW, 22,
+                    withAlpha(0xD20B1522, alpha));
+
+            text(ctx, "AURAMOD",
+                    x + 18, previewY + 37,
+                    withAlpha(accent(), alpha));
+        }
+
+        if (targetPreview) {
+            int hudW = Math.min(175, Math.max(100, w / 2));
+            int hudX = x + w - hudW - 10;
+
+            fill(ctx,
+                    hudX, previewY + 30,
+                    hudW, 59,
+                    withAlpha(0xD20B1522, alpha));
+
+            text(ctx, "Training target",
+                    hudX + 8, previewY + 39,
+                    withAlpha(0xFFE8F3FC, alpha));
+
+            text(ctx, "20.0 / 20.0 HP",
+                    hudX + 8, previewY + 54,
+                    withAlpha(0xFF8FA9BD, alpha));
+
+            ctx.fill(
+                    hudX + 8, previewY + 74,
+                    hudX + hudW - 8, previewY + 80,
+                    withAlpha(0xFF35465A, alpha)
+            );
+
+            ctx.fill(
+                    hudX + 8, previewY + 74,
+                    hudX + hudW - 8, previewY + 80,
+                    withAlpha(0xFF62E0A4, alpha)
+            );
+        }
+
+        text(ctx, "Visual placeholders only",
+                x + 10, previewY + 104,
+                withAlpha(0xFF8197AC, alpha));
+    }
+
+    private void optionCard(
+            DrawContext ctx,
+            int x, int y, int w, int h,
+            String label,
+            boolean enabled,
+            float alpha,
+            int mx, int my
+    ) {
+        card(ctx, x, y, w, h, alpha, mx, my);
+
+        text(ctx, label,
+                x + 9, y + 12,
+                withAlpha(0xFFE6F2FC, alpha));
+
+        text(ctx, enabled ? "ON" : "OFF",
+                x + 9, y + 32,
+                withAlpha(enabled ? accent() : 0xFF7D91A5, alpha));
+
+        ctx.fill(
+                x + w - 35, y + 17,
+                x + w - 10, y + 35,
+                withAlpha(enabled ? accent() : 0xFF334459, alpha * 0.75F)
         );
     }
 
-    private void drawSwitch(
-            DrawContext context, String key, boolean value,
-            int x, int y, float alpha
-    ) {
-        float current = switchAnimations.getOrDefault(
-                key, value ? 1.0F : 0.0F
-        );
-
-        float target = value ? 1.0F : 0.0F;
-        current += (target - current) * 0.24F;
-
-        if (Math.abs(target - current) < 0.005F) {
-            current = target;
-        }
-
-        switchAnimations.put(key, current);
-
-        int bg = mix(0xFF334459, accent(), current);
-
-        rounded(context, x, y, 35, 19, 9,
-                withAlpha(bg, 0.95F * alpha));
-
-        rounded(context, x + 2 + Math.round(current * 15.0F),
-                y + 2, 15, 15, 7,
-                withAlpha(0xFFF3FBFF, alpha));
-    }
-
-    private void drawGrid(DrawContext context, float alpha) {
-        int color = withAlpha(accent(), 0.045F * alpha);
-
-        for (int x = 0; x < width; x += 26) {
-            context.fill(x, 0, x + 1, height, color);
-        }
-
-        for (int y = 0; y < height; y += 26) {
-            context.fill(0, y, width, y + 1, color);
-        }
-    }
-
-    private void drawParticles(DrawContext context, float alpha) {
-        for (int i = 0; i < 34; i++) {
-            double phase =
-                    animationTime * (0.006 + (i % 4) * 0.0015)
-                            + i * 1.73;
-
-            int x = positiveMod(
-                    (int) (i * 97 + Math.sin(phase) * 26),
-                    Math.max(1, width)
-            );
-
-            int y = positiveMod(
-                    (int) (
-                            i * 59
-                                    - animationTime
-                                    * (0.15 + (i % 3) * 0.07)
-                    ),
-                    Math.max(1, height)
-            );
-
-            int size = (i % 6 == 0) ? 3 : 2;
-
-            context.fill(x, y, x + size, y + size,
-                    withAlpha(
-                            accent(),
-                            (i % 5 == 0 ? 0.30F : 0.12F) * alpha
-                    ));
-        }
-    }
-
-    private void rounded(
-            DrawContext context, int x, int y, int w, int h,
-            int radius, int color
+    private void card(
+            DrawContext ctx,
+            int x, int y, int w, int h,
+            float alpha,
+            int mx, int my
     ) {
         if (w <= 0 || h <= 0) {
             return;
         }
 
-        int r = Math.max(
-                0, Math.min(radius, Math.min(w, h) / 2)
+        boolean hovered = inside(mx, my, x, y, w, h);
+
+        ctx.fill(
+                x, y, x + w, y + h,
+                withAlpha(hovered ? 0xB52D4054 : 0x92233346, alpha)
         );
 
-        if (r == 0) {
-            context.fill(x, y, x + w, y + h, color);
-            return;
+        ctx.fill(
+                x, y, x + w, y + 1,
+                withAlpha(
+                        hovered ? accent() : 0xFFD8F0FF,
+                        alpha * (hovered ? 0.35F : 0.12F)
+                )
+        );
+
+        ctx.drawBorder(
+                x, y, w, h,
+                withAlpha(0xFFB4CCDF, alpha * 0.13F)
+        );
+    }
+
+    private void button(
+            DrawContext ctx,
+            int x, int y, int w, int h,
+            int color,
+            String label,
+            float alpha
+    ) {
+        ctx.fill(
+                x, y, x + w, y + h,
+                withAlpha(color, alpha * 0.85F)
+        );
+
+        ctx.drawBorder(
+                x, y, w, h,
+                withAlpha(0xFFD8F0FF, alpha * 0.20F)
+        );
+
+        text(ctx, label,
+                x + 10, y + 8,
+                withAlpha(0xFFF2FAFF, alpha));
+    }
+
+    private void drawGrid(DrawContext ctx) {
+        int color = withAlpha(accent(), 0.04F);
+
+        for (int x = 0; x < width; x += 28) {
+            ctx.fill(x, 0, x + 1, height, color);
         }
 
-        context.fill(x + r, y, x + w - r, y + h, color);
-        context.fill(x, y + r, x + w, y + h - r, color);
-
-        for (int row = 0; row < r; row++) {
-            double dy = r - row - 0.5;
-
-            int inset = r - (int) Math.floor(
-                    Math.sqrt(Math.max(0.0, r * r - dy * dy))
-            );
-
-            context.fill(
-                    x + inset, y + row,
-                    x + w - inset, y + row + 1,
-                    color
-            );
-
-            context.fill(
-                    x + inset, y + h - row - 1,
-                    x + w - inset, y + h - row,
-                    color
-            );
+        for (int y = 0; y < height; y += 28) {
+            ctx.fill(0, y, width, y + 1, color);
         }
     }
 
-    private void drawText(
-            DrawContext context, String text,
-            int x, int y, int color
-    ) {
-        context.drawTextWithShadow(
-                textRenderer, text, x, y, color
-        );
-    }
+    private void drawParticles(DrawContext ctx) {
+        for (int i = 0; i < 22; i++) {
+            int px = positiveMod(
+                    i * 91 + (int) (Math.sin(tick * 0.03 + i) * 16),
+                    Math.max(1, width)
+            );
 
-    private String subtitle() {
-        return switch (selectedTab) {
-            case COMBAT -> "Practice controls and module settings";
-            case VISUALS -> "Glass, particles and accent customisation";
-            case HUD -> "Preview your on-screen widgets";
-        };
-    }
+            int py = positiveMod(
+                    i * 47 - (int) (tick * (0.12F + (i % 3) * 0.04F)),
+                    Math.max(1, height)
+            );
 
-    private int accent() {
-        return ACCENTS[accentIndex];
-    }
-
-    private static int withAlpha(int color, float multiplier) {
-        int oldAlpha = (color >>> 24) & 0xFF;
-
-        int alpha = MathHelper.clamp(
-                Math.round(oldAlpha * multiplier),
-                0, 255
-        );
-
-        return (color & 0x00FFFFFF) | (alpha << 24);
-    }
-
-    private static int mix(int from, int to, float amount) {
-        float t = MathHelper.clamp(amount, 0.0F, 1.0F);
-
-        int a = Math.round(
-                ((from >>> 24) & 0xFF)
-                        + (((to >>> 24) & 0xFF)
-                        - ((from >>> 24) & 0xFF)) * t
-        );
-
-        int r = Math.round(
-                ((from >>> 16) & 0xFF)
-                        + (((to >>> 16) & 0xFF)
-                        - ((from >>> 16) & 0xFF)) * t
-        );
-
-        int g = Math.round(
-                ((from >>> 8) & 0xFF)
-                        + (((to >>> 8) & 0xFF)
-                        - ((from >>> 8) & 0xFF)) * t
-        );
-
-        int b = Math.round(
-                (from & 0xFF)
-                        + ((to & 0xFF) - (from & 0xFF)) * t
-        );
-
-        return (a << 24) | (r << 16) | (g << 8) | b;
-    }
-
-    private static float easeOut(float value) {
-        float v = MathHelper.clamp(value, 0.0F, 1.0F);
-        return 1.0F - (1.0F - v) * (1.0F - v);
-    }
-
-    private static boolean inside(
-            double mouseX, double mouseY,
-            int x, int y, int w, int h
-    ) {
-        return mouseX >= x && mouseX <= x + w
-                && mouseY >= y && mouseY <= y + h;
-    }
-
-    private static int positiveMod(int value, int mod) {
-        int result = value % mod;
-        return result < 0 ? result + mod : result;
-    }
-
-    private Layout getLayout() {
-        int panelW = Math.min(650, Math.max(300, width - 24));
-        int panelH = Math.min(390, Math.max(250, height - 24));
-
-        int x = (width - panelW) / 2;
-        int y = (height - panelH) / 2
-                + Math.round((1.0F - openProgress) * 8.0F);
-
-        int sidebarW = Math.min(150, Math.max(112, panelW / 4));
-        int contentX = x + sidebarW + 18;
-        int contentW = Math.max(
-                150, x + panelW - 18 - contentX
-        );
-
-        return new Layout(
-                x, y, panelW, panelH,
-                sidebarW, contentX, contentW
-        );
+            ctx.fill(
+                    px, py, px + 2, py + 2,
+                    withAlpha(accent(), 0.22F)
+            );
+        }
     }
 
     @Override
     public boolean mouseClicked(
-            double mouseX, double mouseY, int button
+            double mouseX,
+            double mouseY,
+            int button
     ) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_1) {
+        if (button != 0) {
             return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        Layout l = getLayout();
-        int top = l.y + 64;
-        int x = l.contentX;
-        int w = l.contentW;
+        Layout l = layout();
 
-        if (inside(
-                mouseX, mouseY,
-                l.x + l.w - 29, l.y + 12, 20, 28
-        )) {
+        if (inside(mouseX, mouseY,
+                l.x + l.w - 28, l.y + 10, 20, 30)) {
             close();
             return true;
         }
 
-        int navY = l.y + 101;
+        int navY = l.y + 94;
 
-        for (Tab tab : Tab.values()) {
-            int y = navY + tab.ordinal() * 42;
+        for (Tab candidate : Tab.values()) {
+            int y = navY + candidate.ordinal() * 39;
 
-            if (inside(
-                    mouseX, mouseY,
-                    l.x + 17, y - 5,
-                    l.sidebarW - 34, 34
-            )) {
-                selectedTab = tab;
+            if (inside(mouseX, mouseY,
+                    l.x + 15, y - 4,
+                    l.sidebarW - 28, 31)) {
+                tab = candidate;
                 return true;
             }
         }
 
-        if (selectedTab == Tab.COMBAT) {
-            int cardY = top + 10;
+        int x = l.contentX;
+        int w = l.contentW;
+        int top = l.y + 58;
 
-            if (inside(
-                    mouseX, mouseY,
-                    x + w - 62, cardY + 8, 53, 50
-            )) {
-                practiceModule.toggle();
+        if (tab == Tab.COMBAT) {
+            int cardY = top + 6;
+
+            if (inside(mouseX, mouseY,
+                    x + w - 85, cardY + 10, 72, 37)) {
+                module.toggle();
                 return true;
             }
 
-            int gap = 10;
-            int leftW = (w - gap) / 2;
-            int rightX = x + leftW + gap;
-            int rowY = cardY + 77;
-            int trackX = x + 13;
-            int trackW = leftW - 26;
-            int trackY = rowY + 66;
+            int gap = 9;
+            int half = (w - gap) / 2;
+            int rowY = cardY + 66;
+            int trackX = x + 12;
+            int trackW = Math.max(20, half - 24);
 
-            if (inside(mouseX, mouseY, x, rowY, leftW, 94)) {
-                if (mouseY >= trackY - 12) {
-                    double value = (mouseX - trackX)
-                            / (double) Math.max(1, trackW);
+            if (inside(mouseX, mouseY, x, rowY, half, 79)
+                    && mouseY >= rowY + 43) {
+                double ratio = (mouseX - trackX) / (double) trackW;
+                ratio = Math.max(0.0, Math.min(1.0, ratio));
 
-                    practiceModule.setRange(
-                            1.0 + MathHelper.clamp(value, 0.0, 1.0) * 5.0
-                    );
-
-                    return true;
-                }
-            }
-
-            if (inside(mouseX, mouseY, rightX, rowY, leftW, 43)) {
-                practiceModule.setRaycast(
-                        !practiceModule.isRaycastEnabled()
-                );
+                module.setRange(1.0 + ratio * 5.0);
                 return true;
             }
 
-            if (inside(
-                    mouseX, mouseY,
-                    rightX, rowY + 51, leftW, 43
-            )) {
+            int rightX = x + half + gap;
+
+            if (inside(mouseX, mouseY, rightX, rowY, half, 35)) {
+                module.setRaycast(!module.isRaycastEnabled());
+                return true;
+            }
+
+            if (inside(mouseX, mouseY, rightX, rowY + 43, half, 36)) {
                 KillAuraModule.RotationMode next =
-                        practiceModule.getRotationMode()
+                        module.getRotationMode()
                                 == KillAuraModule.RotationMode.SMOOTH
                                 ? KillAuraModule.RotationMode.SNAP
                                 : KillAuraModule.RotationMode.SMOOTH;
 
-                practiceModule.setRotationMode(next);
+                module.setRotationMode(next);
                 return true;
             }
-        } else if (selectedTab == Tab.VISUALS) {
-            int cardY = top + 10;
-            int gap = 10;
+
+        } else if (tab == Tab.VISUALS) {
+            int gap = 9;
             int half = (w - gap) / 2;
-            int h = 84;
+            int y = top + 7;
 
-            if (inside(mouseX, mouseY, x, cardY, half, h)) {
-                particlesEnabled = !particlesEnabled;
+            if (inside(mouseX, mouseY, x, y, half, 55)) {
+                particles = !particles;
                 return true;
             }
 
-            if (inside(
-                    mouseX, mouseY,
-                    x + half + gap, cardY, half, h
-            )) {
-                glassGlowEnabled = !glassGlowEnabled;
+            if (inside(mouseX, mouseY,
+                    x + half + gap, y, half, 55)) {
+                glow = !glow;
                 return true;
             }
 
-            if (inside(
-                    mouseX, mouseY,
-                    x, cardY + h + 10, half, h
-            )) {
-                gridEnabled = !gridEnabled;
+            if (inside(mouseX, mouseY, x, y + 64, half, 55)) {
+                grid = !grid;
                 return true;
             }
 
-            if (inside(
-                    mouseX, mouseY,
-                    x + half + gap, cardY + h + 10, half, h
-            )) {
+            if (inside(mouseX, mouseY,
+                    x + half + gap, y + 64, half, 55)) {
                 accentIndex = (accentIndex + 1) % ACCENTS.length;
                 return true;
             }
-        } else if (selectedTab == Tab.HUD) {
-            int cardY = top + 10;
-            int half = (w - 10) / 2;
 
-            if (inside(
-                    mouseX, mouseY, x, cardY, half, 77
-            )) {
-                arrayListPreviewEnabled = !arrayListPreviewEnabled;
+        } else if (tab == Tab.HUD) {
+            int half = (w - 9) / 2;
+            int y = top + 7;
+
+            if (inside(mouseX, mouseY, x, y, half, 55)) {
+                arrayPreview = !arrayPreview;
                 return true;
             }
 
-            if (inside(
-                    mouseX, mouseY,
-                    x + half + 10, cardY, half, 77
-            )) {
-                targetHudPreviewEnabled = !targetHudPreviewEnabled;
+            if (inside(mouseX, mouseY,
+                    x + half + 9, y, half, 55)) {
+                targetPreview = !targetPreview;
                 return true;
             }
         }
@@ -1014,7 +752,9 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public boolean keyPressed(
-            int keyCode, int scanCode, int modifiers
+            int keyCode,
+            int scanCode,
+            int modifiers
     ) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE
                 || keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
@@ -1025,12 +765,89 @@ public final class ClickGuiScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    // FIX: Screen.close() is public, so this override must also be public.
     @Override
     public void close() {
-        if (client != null) {
-            client.setScreen(null);
+        if (this.client != null) {
+            this.client.setScreen(null);
         }
+    }
+
+    private Layout layout() {
+        int panelW = Math.max(280, Math.min(620, width - 24));
+        int panelH = Math.max(300, Math.min(390, height - 24));
+
+        int x = (width - panelW) / 2;
+        int y = (height - panelH) / 2
+                + Math.round((1.0F - openAmount) * 5.0F);
+
+        int sidebarW = Math.min(145, Math.max(100, panelW / 4));
+        int contentX = x + sidebarW + 16;
+        int contentW = Math.max(130, x + panelW - 14 - contentX);
+
+        return new Layout(
+                x, y, panelW, panelH,
+                sidebarW, contentX, contentW
+        );
+    }
+
+    private String subtitle() {
+        return switch (tab) {
+            case COMBAT -> "Practice settings";
+            case VISUALS -> "Glass and accent settings";
+            case HUD -> "HUD widget previews";
+        };
+    }
+
+    private int accent() {
+        return ACCENTS[accentIndex];
+    }
+
+    private void text(
+            DrawContext ctx,
+            String value,
+            int x, int y,
+            int color
+    ) {
+        ctx.drawTextWithShadow(
+                this.textRenderer, value, x, y, color
+        );
+    }
+
+    private static boolean inside(
+            double mx, double my,
+            int x, int y, int w, int h
+    ) {
+        return mx >= x && mx <= x + w
+                && my >= y && my <= y + h;
+    }
+
+    private static int withAlpha(int color, float factor) {
+        int baseAlpha = (color >>> 24) & 0xFF;
+        int alpha = Math.max(
+                0,
+                Math.min(255, Math.round(baseAlpha * factor))
+        );
+
+        return (color & 0x00FFFFFF) | (alpha << 24);
+    }
+
+    private static float clamp01(float value) {
+        return Math.max(0.0F, Math.min(1.0F, value));
+    }
+
+    private static void fill(
+            DrawContext ctx,
+            int x, int y, int w, int h,
+            int color
+    ) {
+        if (w > 0 && h > 0) {
+            ctx.fill(x, y, x + w, y + h, color);
+        }
+    }
+
+    private static int positiveMod(int value, int mod) {
+        int result = value % mod;
+        return result < 0 ? result + mod : result;
     }
 
     private record Layout(
