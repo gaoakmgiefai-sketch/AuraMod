@@ -5,10 +5,10 @@ import auramod.rotations.SpookyTimeBypassRotations;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
-import java.util.Random;
+import net.minecraft.util.Hand;
 
 public class KillAuraModule {
-    private boolean toggled = true; // Включена по умолчанию для тестов
+    private boolean toggled = true;
     private String currentRotationMode = "ReallyWorld Aggressive";
     private float range = 4.2f;
     private static final MinecraftClient mc = MinecraftClient.getInstance();
@@ -35,7 +35,7 @@ public class KillAuraModule {
 
             if (mc.player.getAttackCooldownProgress(0.5f) >= 1.0f) {
                 mc.interactionManager.attackEntity(mc.player, target);
-                mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+                mc.player.swingHand(Hand.MAIN_HAND);
             }
         }
     }
@@ -58,7 +58,7 @@ public class KillAuraModule {
     private float calculateYaw(Entity target) {
         double dx = target.getX() - mc.player.getX();
         double dz = target.getZ() - mc.player.getZ();
-        return (float) (Math.atan2(dz, dx) * (180 / Math.PI)) - 90.0f;
+        return (float) (Math.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0f;
     }
 
     private float calculatePitch(Entity target) {
@@ -66,7 +66,7 @@ public class KillAuraModule {
         double dy = (target.getY() + target.getStandingEyeHeight()) - (mc.player.getY() + mc.player.getStandingEyeHeight());
         double dz = target.getZ() - mc.player.getZ();
         double distance = Math.sqrt(dx * dx + dz * dz);
-        return (float) (-(Math.atan2(dy, distance) * (180 / Math.PI)));
+        return (float) (-(Math.atan2(dy, distance) * (180.0 / Math.PI)));
     }
 
     public void setMode(String mode) {
