@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "auramod",
+  "version": "${version}",
+  "name": "AuraMod Practice",
+  "description": "A small singleplayer practice mod for hostile mobs.",
+  "authors": ["AuraMod"],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.auramod.AuraModClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.14",
+    "minecraft": "~1.21.8",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
